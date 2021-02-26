@@ -9,6 +9,7 @@ const ArbitrageExecution = require('./ArbitrageExecution');
 const CalculationNode = require('./CalculationNode');
 const SpeedTest = require('./SpeedTest');
 const Validation = require('./Validation');
+const Telegram = require('./Telegram');
 
 let recentCalculations = {};
 let initialized = null;
@@ -61,6 +62,7 @@ SpeedTest.multiPing(5)
         const msg = `Initialized`;
         console.log(msg);
         logger.execution.info(msg);
+        Telegram.send(msg);
         initialized = Date.now();
 
         console.log();
@@ -71,6 +73,7 @@ SpeedTest.multiPing(5)
 
         if (CONFIG.HUD.ENABLED) setInterval(() => HUD.displayTopCalculations(recentCalculations, CONFIG.HUD.ROWS), CONFIG.HUD.REFRESH_RATE);
         if (CONFIG.LOG.STATUS_UPDATE_INTERVAL > 0) setInterval(displayStatusUpdate, CONFIG.LOG.STATUS_UPDATE_INTERVAL * 1000 * 60);
+        if (CONFIG.TELEGRAM.STATUS_UPDATE_INTERVAL > 0) setInterval(sendStatusUpdate, CONFIG.TELEGRAM.STATUS_UPDATE_INTERVAL * 1000 * 60);
     })
     .catch(handleError);
 
@@ -121,6 +124,28 @@ function displayStatusUpdate() {
         .catch(err => logger.performance.warn(err.message));
 }
 
+function sendStatusUpdate() {
+    const statusUpdateIntervalMS = CONFIG.TELEGRAM.STATUS_UPDATE_INTERVAL * 1000 * 60;
+
+    const tickersWithoutRecentDepthUpdate = MarketCache.getTickersWithoutDepthCacheUpdate(statusUpdateIntervalMS);
+    if (tickersWithoutRecentDepthUpdate.length > 0) {
+        Telegram.send(`Tickers without recent depth cache update: [${tickersWithoutRecentDepthUpdate.sort()}]`);
+    }
+
+    Telegram.send(`Cycles done per second:  ${(statusUpdate.cycleTimes.length / (statusUpdateIntervalMS / 1000)).toFixed(2)} \nClock usage for cycles:  ${(Util.sum(statusUpdate.cycleTimes) / statusUpdateIntervalMS * 100).toFixed(2)}%`);
+
+    statusUpdate.cycleTimes = [];
+
+    Promise.all([
+        si.currentLoad(),
+        SpeedTest.ping()
+    ])
+        .then(([load, latency]) => {
+            Telegram.send(`CPU Load: ${(load.avgload * 100).toFixed(0)}% [${load.cpus.map(cpu => cpu.load.toFixed(0) + '%')}] \nAPI Latency: ${latency} ms \n${logger.LINE}`);
+        })
+        .catch(err => Telegram.send(err.message));
+}
+
 function handleError(err) {
     console.error(err);
     logger.binance.error(err);
@@ -137,16 +162,19 @@ function checkBalances() {
             if (balances[CONFIG.INVESTMENT.BASE].available < CONFIG.INVESTMENT.MIN) {
                 const msg = `Only detected ${balances[CONFIG.INVESTMENT.BASE].available} ${CONFIG.INVESTMENT.BASE}, but ${CONFIG.INVESTMENT.MIN} ${CONFIG.INVESTMENT.BASE} is required to satisfy your INVESTMENT.MIN configuration`;
                 logger.execution.error(msg);
+                Telegram.send(msg);
                 throw new Error(msg);
             }
             if (balances[CONFIG.INVESTMENT.BASE].available < CONFIG.INVESTMENT.MAX) {
                 const msg = `Only detected ${balances[CONFIG.INVESTMENT.BASE].available} ${CONFIG.INVESTMENT.BASE}, but ${CONFIG.INVESTMENT.MAX} ${CONFIG.INVESTMENT.BASE} is required to satisfy your INVESTMENT.MAX configuration`;
                 logger.execution.error(msg);
+                Telegram.send(msg);
                 throw new Error(msg);
             }
             if (balances['BNB'].available <= 0.001) {
                 const msg = `Only detected ${balances['BNB'].available} BNB which is not sufficient to pay for trading fees via BNB`;
                 logger.execution.error(msg);
+                Telegram.send(msg);
                 throw new Error(msg);
             }
         });
@@ -158,6 +186,7 @@ function checkMarket() {
     if (MarketCache.trades.length === 0) {
         const msg = `No triangular trades were identified`;
         logger.execution.error(msg);
+        Telegram.send(msg);
         throw new Error(msg);
     }
 

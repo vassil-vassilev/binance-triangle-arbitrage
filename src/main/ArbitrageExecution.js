@@ -3,6 +3,7 @@ const logger = require('./Loggers');
 const BinanceApi = require('./BinanceApi');
 const CalculationNode = require('./CalculationNode');
 const Util = require('./Util');
+const Telegram = require('./Telegram');
 
 const ArbitrageExecution = {
 
@@ -28,10 +29,12 @@ const ArbitrageExecution = {
         ArbitrageExecution.inProgressSymbols.add(symbol.c);
 
         logger.execution.info(`Attempting to execute ${calculated.id} with an age of ${Math.max(age.ab, age.bc, age.ca).toFixed(0)} ms and expected profit of ${calculated.percent.toFixed(4)}%`);
+        Telegram.send(`Attempting to execute ${calculated.id} with an age of ${Math.max(age.ab, age.bc, age.ca).toFixed(0)} ms and expected profit of ${calculated.percent.toFixed(4)}%`);
 
         return ArbitrageExecution.getExecutionStrategy()(calculated)
             .then((actual) => {
                 logger.execution.info(`${CONFIG.EXECUTION.ENABLED ? 'Executed' : 'Test: Executed'} ${calculated.id} position in ${Util.millisecondsSince(startTime)} ms`);
+                Telegram.send(`${CONFIG.EXECUTION.ENABLED ? 'Executed' : 'Test: Executed'} ${calculated.id} position in ${Util.millisecondsSince(startTime)} ms`)
 
                 // Results are only collected when a trade is executed
                 if (!CONFIG.EXECUTION.ENABLED) return;
@@ -87,6 +90,13 @@ const ArbitrageExecution = {
                 logger.execution.info(`${symbol.c} delta:\t  ${actual.c.delta < 0 ? '' : ' '}${actual.c.delta.toFixed(8)} (${percent.c < 0 ? '' : ' '}${percent.c.toFixed(4)}%)`);
                 logger.execution.info(`BNB fees: \t  ${(-1 * actual.fees).toFixed(8)}`);
                 logger.execution.info();
+
+                Telegram.send(`
+                    ${symbol.a} delta:\t  ${actual.a.delta < 0 ? '' : ' '}${actual.a.delta.toFixed(8)} (${percent.a < 0 ? '' : ' '}${percent.a.toFixed(4)}%) \n
+                    ${symbol.b} delta:\t  ${actual.b.delta < 0 ? '' : ' '}${actual.b.delta.toFixed(8)} (${percent.b < 0 ? '' : ' '}${percent.b.toFixed(4)}%) \n
+                    ${symbol.c} delta:\t  ${actual.c.delta < 0 ? '' : ' '}${actual.c.delta.toFixed(8)} (${percent.c < 0 ? '' : ' '}${percent.c.toFixed(4)}%) \n
+                    BNB fees: \t  ${(-1 * actual.fees).toFixed(8)} \n
+                    ${logger.LINE}`);
             })
             .catch((err) => logger.execution.error(err.message))
             .then(() => {
