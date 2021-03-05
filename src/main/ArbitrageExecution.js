@@ -68,6 +68,11 @@ const ArbitrageExecution = {
                 logger.execution.debug(`Expected Conversion:  ${calculated.c.spent.toFixed(8)} ${symbol.c} into ${calculated.a.earned.toFixed(8)} ${symbol.a} @ ${price.ca.expected.toFixed(8)}`);
                 logger.execution.debug(`Observed Conversion:  ${actual.c.spent.toFixed(8)} ${symbol.c} into ${actual.a.earned.toFixed(8)} ${symbol.a} @ ${price.ca.actual.toFixed(8)}`);
                 logger.execution.debug(`Price Change:         ${((price.ca.actual - price.ca.expected) / price.ca.expected * 100).toFixed(8)}%`);
+                
+                Telegram.send(
+                    `Converted:  ${actual.a.spent.toFixed(8)} ${symbol.a} into ${actual.b.earned.toFixed(8)} ${symbol.b} @ ${price.ab.actual.toFixed(8)} (expected @ ${price.ab.expected.toFixed(8)})\n` +
+                    `Converted:  ${actual.b.spent.toFixed(8)} ${symbol.b} into ${actual.c.earned.toFixed(8)} ${symbol.c} @ ${price.bc.actual.toFixed(8)} (expected @ ${price.bc.expected.toFixed(8)})\n` +
+                    `Converted:  ${actual.c.spent.toFixed(8)} ${symbol.c} into ${actual.a.earned.toFixed(8)} ${symbol.a} @ ${price.ca.actual.toFixed(8)} (expected @ ${price.ca.expected.toFixed(8)})`)
 
                 const prunedDepthSnapshot = {
                     ab: Util.pruneSnapshot(calculated.depth.ab, CalculationNode.getOrderBookDepthRequirement(calculated.trade.ab.method, calculated.ab, calculated.depth.ab) + 2),
@@ -91,12 +96,12 @@ const ArbitrageExecution = {
                 logger.execution.info(`BNB fees: \t  ${(-1 * actual.fees).toFixed(8)}`);
                 logger.execution.info();
 
-                Telegram.send(`
-                    ${symbol.a} delta:\t  ${actual.a.delta < 0 ? '' : ' '}${actual.a.delta.toFixed(8)} (${percent.a < 0 ? '' : ' '}${percent.a.toFixed(4)}%) \n
-                    ${symbol.b} delta:\t  ${actual.b.delta < 0 ? '' : ' '}${actual.b.delta.toFixed(8)} (${percent.b < 0 ? '' : ' '}${percent.b.toFixed(4)}%) \n
-                    ${symbol.c} delta:\t  ${actual.c.delta < 0 ? '' : ' '}${actual.c.delta.toFixed(8)} (${percent.c < 0 ? '' : ' '}${percent.c.toFixed(4)}%) \n
-                    BNB fees: \t  ${(-1 * actual.fees).toFixed(8)} \n
-                    ${logger.LINE}`);
+                Telegram.send(
+                    `${symbol.a} delta:\t  ${actual.a.delta < 0 ? '' : ' '}${actual.a.delta.toFixed(8)} (${percent.a < 0 ? '' : ' '}${percent.a.toFixed(4)}%)\n` +
+                    `${symbol.b} delta:\t  ${actual.b.delta < 0 ? '' : ' '}${actual.b.delta.toFixed(8)} (${percent.b < 0 ? '' : ' '}${percent.b.toFixed(4)}%)\n` +
+                    `${symbol.c} delta:\t  ${actual.c.delta < 0 ? '' : ' '}${actual.c.delta.toFixed(8)} (${percent.c < 0 ? '' : ' '}${percent.c.toFixed(4)}%)\n` +
+                    `BNB fees: \t  ${(-1 * actual.fees).toFixed(8)}\n` +
+                    `${logger.LINE}`);
             })
             .catch((err) => logger.execution.error(err.message))
             .then(() => {

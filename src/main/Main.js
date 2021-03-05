@@ -108,8 +108,11 @@ function displayStatusUpdate() {
         logger.performance.debug(`Tickers without recent depth cache update: [${tickersWithoutRecentDepthUpdate.sort()}]`);
     }
 
-    logger.performance.debug(`Cycles done per second:  ${(statusUpdate.cycleTimes.length / (statusUpdateIntervalMS / 1000)).toFixed(2)}`);
-    logger.performance.debug(`Clock usage for cycles:  ${(Util.sum(statusUpdate.cycleTimes) / statusUpdateIntervalMS * 100).toFixed(2)}%`);
+    const cycles = (statusUpdate.cycleTimes.length / (statusUpdateIntervalMS / 1000)).toFixed(2);
+    const clockUsage = (Util.sum(statusUpdate.cycleTimes) / statusUpdateIntervalMS * 100).toFixed(2);
+
+    logger.performance.debug(`Cycles done per second:  ${cycles}`);
+    logger.performance.debug(`Clock usage for cycles:  ${clockUsage}%`);
 
     statusUpdate.cycleTimes = [];
 
@@ -125,14 +128,18 @@ function displayStatusUpdate() {
 }
 
 function sendStatusUpdate() {
-    const statusUpdateIntervalMS = CONFIG.TELEGRAM.STATUS_UPDATE_INTERVAL * 1000 * 60;
+    const statusUpdateIntervalMS = CONFIG.LOG.STATUS_UPDATE_INTERVAL * 1000 * 60;
 
     const tickersWithoutRecentDepthUpdate = MarketCache.getTickersWithoutDepthCacheUpdate(statusUpdateIntervalMS);
     if (tickersWithoutRecentDepthUpdate.length > 0) {
         Telegram.send(`Tickers without recent depth cache update: [${tickersWithoutRecentDepthUpdate.sort()}]`);
     }
 
-    Telegram.send(`Cycles done per second:  ${(statusUpdate.cycleTimes.length / (statusUpdateIntervalMS / 1000)).toFixed(2)} \nClock usage for cycles:  ${(Util.sum(statusUpdate.cycleTimes) / statusUpdateIntervalMS * 100).toFixed(2)}%`);
+    const cycles = (statusUpdate.cycleTimes.length / (statusUpdateIntervalMS / 1000)).toFixed(2);
+    const clockUsage = (Util.sum(statusUpdate.cycleTimes) / statusUpdateIntervalMS * 100).toFixed(2);
+
+    Telegram.send(`Cycles done per second:  ${cycles}\n` +
+        `Clock usage for cycles:  ${clockUsage}%`);
 
     statusUpdate.cycleTimes = [];
 
@@ -141,7 +148,9 @@ function sendStatusUpdate() {
         SpeedTest.ping()
     ])
         .then(([load, latency]) => {
-            Telegram.send(`CPU Load: ${(load.avgload * 100).toFixed(0)}% [${load.cpus.map(cpu => cpu.load.toFixed(0) + '%')}] \nAPI Latency: ${latency} ms \n${logger.LINE}`);
+            Telegram.send(`CPU Load: ${(load.avgload * 100).toFixed(0)}% [${load.cpus.map(cpu => cpu.load.toFixed(0) + '%')}]\n` +
+                `API Latency: ${latency} ms\n` +
+                `${logger.LINE}`);
         })
         .catch(err => Telegram.send(err.message));
 }
